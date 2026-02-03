@@ -22,27 +22,36 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rootLayout: FrameLayout
     private var customView: View? = null
     
-    // URL PARA LA SEGUNDA APP
+    // URL para tu segunda App
     private val DEFAULT_URL = "https://hdfull.one"
     private var cursorX = 640f
     private var cursorY = 360f
     private val step = 45f 
 
+    // Temporizador para el puntero
     private val hideHandler = Handler(Looper.getMainLooper())
-    private val hideRunnable = Runnable { cursorView.visibility = View.GONE }
+    private val hideRunnable = Runnable {
+        cursorView.visibility = View.GONE
+    }
     private val CURSOR_TIMEOUT = 3000L 
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        rootLayout = FrameLayout(this)
         
-        webView = WebView(this).apply {
+        // Conectamos con el XML simplificado
+        setContentView(R.layout.activity_main)
+        rootLayout = findViewById(R.id.rootLayout)
+        webView = findViewById(R.id.webView)
+
+        webView.apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            
             webViewClient = WebViewClient()
+            
             webChromeClient = object : WebChromeClient() {
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (customView != null) {
@@ -50,10 +59,14 @@ class MainActivity : AppCompatActivity() {
                         return
                     }
                     customView = view
-                    rootLayout.addView(customView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                    rootLayout.addView(customView, FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, 
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    ))
                     webView.visibility = View.GONE
                     showCursorTemporarily()
                 }
+
                 override fun onHideCustomView() {
                     if (customView == null) return
                     rootLayout.removeView(customView)
@@ -64,8 +77,8 @@ class MainActivity : AppCompatActivity() {
             }
             loadUrl(DEFAULT_URL)
         }
-        rootLayout.addView(webView)
 
+        // Creamos el puntero rojo
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -76,7 +89,6 @@ class MainActivity : AppCompatActivity() {
         }
         rootLayout.addView(cursorView)
 
-        setContentView(rootLayout)
         showCursorTemporarily()
     }
 
@@ -93,16 +105,7 @@ class MainActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    val downTime = android.os.SystemClock.uptimeMillis()
-                    val downEvent = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
-                    val upEvent = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0)
-                    if (customView != null) {
-                        customView?.dispatchTouchEvent(downEvent)
-                        customView?.dispatchTouchEvent(upEvent)
-                    } else {
-                        webView.dispatchTouchEvent(downEvent)
-                        webView.dispatchTouchEvent(upEvent)
-                    }
+                    enviarClic()
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
@@ -122,6 +125,20 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    private fun enviarClic() {
+        val downTime = android.os.SystemClock.uptimeMillis()
+        val downEvent = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
+        val upEvent = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0)
+        
+        if (customView != null) {
+            customView?.dispatchTouchEvent(downEvent)
+            customView?.dispatchTouchEvent(upEvent)
+        } else {
+            webView.dispatchTouchEvent(downEvent)
+            webView.dispatchTouchEvent(upEvent)
+        }
+    }
+
     private fun showCursorTemporarily() {
         cursorView.visibility = View.VISIBLE
         cursorView.bringToFront()
@@ -134,5 +151,6 @@ class MainActivity : AppCompatActivity() {
         cursorY = cursorY.coerceIn(0f, rootLayout.height.toFloat())
         cursorView.x = cursorX
         cursorView.y = cursorY
+        cursorView.bringToFront()
     }
 }
