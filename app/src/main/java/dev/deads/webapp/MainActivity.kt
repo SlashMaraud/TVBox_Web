@@ -9,10 +9,7 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.webkit.*
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 
@@ -29,9 +26,7 @@ class MainActivity : AppCompatActivity() {
     private val step = 45f 
 
     private val hideHandler = Handler(Looper.getMainLooper())
-    private val hideRunnable = Runnable {
-        cursorView.visibility = View.GONE
-    }
+    private val hideRunnable = Runnable { cursorView.visibility = View.GONE }
     private val CURSOR_TIMEOUT = 3000L 
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -42,22 +37,30 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
+        // --- CONFIGURACIÓN PARA SALTAR EL BUCLE DE SEGURIDAD ---
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
             loadWithOverviewMode = true
             useWideViewPort = true
             cacheMode = WebSettings.LOAD_DEFAULT
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             javaScriptCanOpenWindowsAutomatically = true
             mediaPlaybackRequiresUserGesture = false
-            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            // User Agent de Chrome muy reciente
+            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                if (url != null) view?.loadUrl(url)
-                return true
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                return false // Permite que Cloudflare maneje las redirecciones internamente
             }
         }
             
@@ -87,6 +90,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.loadUrl(DEFAULT_URL)
 
+        // --- PUNTERO ---
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -96,7 +100,6 @@ class MainActivity : AppCompatActivity() {
             layoutParams = FrameLayout.LayoutParams(30, 30)
         }
         rootLayout.addView(cursorView)
-
         showCursorTemporarily()
     }
 
