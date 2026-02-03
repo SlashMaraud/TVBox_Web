@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">HD Full</string>
+    <string name="app_name">HDFull</string>
     <string name="menu_title">Menu</DashScreen>
     <string name="url_hint">Enter URL</string>
     <string name="save_url_button">Save &amp; Load URL</string>
