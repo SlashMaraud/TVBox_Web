@@ -38,8 +38,7 @@ class MainActivity : AppCompatActivity() {
     private val LANGUAGE_KEY = "SAVED_LANG"
     private val SSL_IGNORE_KEY = "SSL_IGNORE"
     private val IS_FIRST_RUN_KEY = "IS_FIRST_RUN"
-    private val DEFAULT_URL = "https://hdfull.one"
-
+    private val DEFAULT_URL = "https://pelisflix20.space/
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
