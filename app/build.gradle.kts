@@ -9,7 +9,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dev.deads.webapp"
+        applicationId = "dev.deads.hdfull"
         minSdk = 21
         targetSdk = 35
         versionCode = 2
