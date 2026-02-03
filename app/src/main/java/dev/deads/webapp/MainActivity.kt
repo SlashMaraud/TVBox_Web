@@ -9,6 +9,7 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.webkit.*
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -33,13 +34,17 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Aceleración por hardware para scripts pesados
+        window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
+        
         setContentView(R.layout.activity_main)
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // Limpiar cookies viejas por si acaso hay un token corrupto
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        // Limpieza y activación de Cookies
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -49,40 +54,26 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             javaScriptCanOpenWindowsAutomatically = true
             mediaPlaybackRequiresUserGesture = false
-            setSupportMultipleWindows(true) // Importante para algunos captchas
+            setSupportMultipleWindows(false)
+            cacheMode = WebSettings.LOAD_DEFAULT
             
-            // DISFRAZ DE CHROME DE WINDOWS
+            // DISFRAZ TOTAL DE PC
             userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
-            // ESTA FUNCIÓN ES LA CLAVE: Borra el rastro de que es una APP de Android
-            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                return super.shouldInterceptRequest(view, request)
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                return false // Deja que Cloudflare maneje sus propios saltos
             }
 
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                // No forzamos la carga, dejamos que el navegador fluya
-                return false 
+            // Truco: Forzamos el Referrer para que parezca que navegamos dentro de la web
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                cookieManager.flush()
             }
         }
             
         webView.webChromeClient = object : WebChromeClient() {
-            override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
-                // Si la web intenta abrir una ventana de verificación, la cargamos en el mismo WebView
-                val newWebView = WebView(this@MainActivity)
-                newWebView.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        webView.loadUrl(request?.url.toString())
-                        return true
-                    }
-                }
-                val transport = resultMsg?.obj as WebView.WebViewTransport
-                transport.webView = newWebView
-                resultMsg.sendToTarget()
-                return true
-            }
-
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 if (customView != null) {
                     callback?.onCustomViewHidden()
@@ -106,9 +97,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl(DEFAULT_URL)
+        // Cargamos con cabeceras extra para parecer un navegador de PC
+        val extraHeaders = HashMap<String, String>()
+        extraHeaders["Upgrade-Insecure-Requests"] = "1"
+        extraHeaders["Sec-Fetch-Mode"] = "navigate"
+        webView.loadUrl(DEFAULT_URL, extraHeaders)
 
-        // PUNTERO
+        // --- PUNTERO ---
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
