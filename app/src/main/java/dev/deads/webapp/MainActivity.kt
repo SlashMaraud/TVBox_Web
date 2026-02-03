@@ -37,9 +37,10 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // Configuración idéntica a navegadores profesionales
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        // CONFIGURACIÓN DE COOKIES (Crítico para Cloudflare)
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -49,20 +50,24 @@ class MainActivity : AppCompatActivity() {
             loadWithOverviewMode = true
             useWideViewPort = true
             cacheMode = WebSettings.LOAD_DEFAULT
-            // User Agent de Chrome estable en Windows 10
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            // User Agent de Chrome real en Windows para máxima compatibilidad
             userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
-            // ESTO ES LO QUE HACE TVBRO: Borra la marca de "App Android" en cada petición
-            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                val headers = request?.requestHeaders?.toMutableMap()
-                headers?.remove("X-Requested-With")
-                return super.shouldInterceptRequest(view, request)
+            override fun onPageFinished(view: WebView?, url: String?) {
+                // Forzamos el guardado de cookies al terminar de cargar
+                cookieManager.flush()
+                // Escondemos que somos un entorno automatizado
+                view?.evaluateJavascript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})", null)
+                super.onPageFinished(view, url)
             }
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false 
+                val url = request?.url.toString()
+                // Permitimos que todas las redirecciones de seguridad ocurran en el mismo sitio
+                return false
             }
         }
 
@@ -85,9 +90,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl(DEFAULT_URL)
+        // Cargamos la URL con una cabecera de Referer para "engañar" al firewall
+        val extraHeaders = HashMap<String, String>()
+        extraHeaders["Referer"] = "https://hdfull.one/"
+        webView.loadUrl(DEFAULT_URL, extraHeaders)
 
-        // Puntero
+        // --- PUNTERO ---
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -104,8 +112,8 @@ class MainActivity : AppCompatActivity() {
         if (event.action == KeyEvent.ACTION_DOWN) {
             showCursorTemporarily()
             when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_UP -> if (cursorY < 100f && customView == null) webView.scrollBy(0, -250) else cursorY -= step
-                KeyEvent.KEYCODE_DPAD_DOWN -> if (cursorY > (rootLayout.height - 150f) && customView == null) webView.scrollBy(0, 250) else cursorY += step
+                KeyEvent.KEYCODE_DPAD_UP -> if (cursorY < 100f && customView == null) webBy(0, -250) else cursorY -= step
+                KeyEvent.KEYCODE_DPAD_DOWN -> if (cursorY > (rootLayout.height - 150f) && customView == null) webBy(0, 250) else cursorY += step
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
@@ -128,6 +136,8 @@ class MainActivity : AppCompatActivity() {
         }
         return super.dispatchKeyEvent(event)
     }
+
+    private fun webBy(x: Int, y: Int) { webView.scrollBy(x, y) }
 
     private fun enviarClic() {
         val downTime = android.os.SystemClock.uptimeMillis()
