@@ -20,13 +20,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rootLayout: FrameLayout
     private var customView: View? = null
     
-    // URL de HDFull
     private val DEFAULT_URL = "https://hdfull.one"
     private var cursorX = 640f
     private var cursorY = 360f
     private val step = 45f 
 
-    // Temporizador para el puntero
     private val hideHandler = Handler(Looper.getMainLooper())
     private val hideRunnable = Runnable {
         cursorView.visibility = View.GONE
@@ -41,7 +39,6 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // Configuración de Cookies (Igual que un navegador real)
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
@@ -55,13 +52,11 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             cacheMode = WebSettings.LOAD_DEFAULT
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            
-            // EL DISFRAZ DE TVBRO (Linux es más aceptado por Cloudflare en Android)
+            // Disfraz exacto de TVBro / Linux
             userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
-            // EL TRUCO MAESTRO: Borramos la cabecera que delata que somos una App
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val headers = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
                 if (headers.containsKey("X-Requested-With")) {
@@ -72,13 +67,8 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 cookieManager.flush()
-                // Escondemos rastro de automatización
                 view?.evaluateJavascript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})", null)
                 super.onPageFinished(view, url)
-            }
-
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false // Permitimos que Cloudflare haga sus saltos internos
             }
         }
 
@@ -95,5 +85,83 @@ class MainActivity : AppCompatActivity() {
 
             override fun onHideCustomView() {
                 if (customView == null) return
-                rootLayout.removeView(
-                    
+                rootLayout.removeView(customView)
+                customView = null
+                webView.visibility = View.VISIBLE
+            }
+        }
+
+        webView.loadUrl(DEFAULT_URL)
+
+        cursorView = View(this).apply {
+            val shape = GradientDrawable()
+            shape.shape = GradientDrawable.OVAL
+            shape.setColor(Color.RED)
+            shape.setStroke(3, Color.WHITE)
+            background = shape
+            layoutParams = FrameLayout.LayoutParams(30, 30)
+        }
+        rootLayout.addView(cursorView)
+        showCursorTemporarily()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            showCursorTemporarily()
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (cursorY < 100f && customView == null) webView.scrollBy(0, -250) else cursorY -= step
+                }
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (cursorY > (rootLayout.height - 150f) && customView == null) webView.scrollBy(0, 250) else cursorY += step
+                }
+                KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
+                KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    enviarClic()
+                    return true
+                }
+                KeyEvent.KEYCODE_BACK -> {
+                    if (customView != null) {
+                        webView.webChromeClient?.onHideCustomView()
+                        return true
+                    }
+                    if (webView.canGoBack()) {
+                        webView.goBack()
+                        return true
+                    }
+                }
+            }
+            updateCursor()
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun enviarClic() {
+        val downTime = android.os.SystemClock.uptimeMillis()
+        val downEvent = android.view.MotionEvent.obtain(downTime, downTime, 0, cursorX, cursorY, 0)
+        val upEvent = android.view.MotionEvent.obtain(downTime, downTime, 1, cursorX, cursorY, 0)
+        if (customView != null) {
+            customView?.dispatchTouchEvent(downEvent)
+            customView?.dispatchTouchEvent(upEvent)
+        } else {
+            webView.dispatchTouchEvent(downEvent)
+            webView.dispatchTouchEvent(upEvent)
+        }
+    }
+
+    private fun showCursorTemporarily() {
+        cursorView.visibility = View.VISIBLE
+        cursorView.bringToFront()
+        hideHandler.removeCallbacks(hideRunnable)
+        hideHandler.postDelayed(hideRunnable, CURSOR_TIMEOUT)
+    }
+
+    private fun updateCursor() {
+        cursorX = cursorX.coerceIn(0f, rootLayout.width.toFloat())
+        cursorY = cursorY.coerceIn(0f, rootLayout.height.toFloat())
+        cursorView.x = cursorX
+        cursorView.y = cursorY
+    }
+}
