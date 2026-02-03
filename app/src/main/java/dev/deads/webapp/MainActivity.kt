@@ -1,41 +1,75 @@
 package dev.deads.webapp
 
 import android.annotation.SuppressLint
-import android.content.Context
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var cursorView: View
+    private lateinit var rootLayout: FrameLayout
+    private var customView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     
     private val DEFAULT_URL = "https://pelisflix20.space/"
     private var cursorX = 640f
     private var cursorY = 360f
     private val step = 45f 
 
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val root = FrameLayout(this)
+        rootLayout = FrameLayout(this)
         
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.mediaPlaybackRequiresUserGesture = false
+            settings.allowFileAccess = true
             settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            
             webViewClient = WebViewClient()
+            
+            // ESTO ES LO QUE ACTIVA LA PANTALLA COMPLETA
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    if (customView != null) {
+                        callback?.onCustomViewHidden()
+                        return
+                    }
+                    customView = view
+                    rootLayout.addView(customView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                    customViewCallback = callback
+                    webView.visibility = View.GONE
+                    cursorView.visibility = View.GONE // Ocultamos el punto en pantalla completa
+                }
+
+                override fun onHideCustomView() {
+                    if (customView == null) return
+                    rootLayout.removeView(customView)
+                    customView = null
+                    customViewCallback?.onCustomViewHidden()
+                    webView.visibility = View.VISIBLE
+                    cursorView.visibility = View.VISIBLE
+                }
+            }
+            
             loadUrl(DEFAULT_URL)
         }
-        root.addView(webView)
+        rootLayout.addView(webView)
 
+        // Cursor visual
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -44,9 +78,9 @@ class MainActivity : AppCompatActivity() {
             background = shape
             layoutParams = FrameLayout.LayoutParams(30, 30)
         }
-        root.addView(cursorView)
+        rootLayout.addView(cursorView)
 
-        setContentView(root)
+        setContentView(rootLayout)
         updateCursor()
     }
 
@@ -54,18 +88,10 @@ class MainActivity : AppCompatActivity() {
         if (event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (cursorY < 100f) {
-                        webView.scrollBy(0, -200) // Sube la pantalla si el punto está arriba
-                    } else {
-                        cursorY -= step
-                    }
+                    if (cursorY < 100f) webView.scrollBy(0, -250) else cursorY -= step
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (cursorY > (webView.height - 150f)) {
-                        webView.scrollBy(0, 200) // Baja la pantalla si el punto llega abajo
-                    } else {
-                        cursorY += step
-                    }
+                    if (cursorY > (webView.height - 150f)) webView.scrollBy(0, 250) else cursorY += step
                 }
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
@@ -78,6 +104,10 @@ class MainActivity : AppCompatActivity() {
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
+                    if (customView != null) {
+                        webView.webChromeClient?.onHideCustomView()
+                        return true
+                    }
                     if (webView.canGoBack()) {
                         webView.goBack()
                         return true
@@ -91,10 +121,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateCursor() {
-        // Evitamos que el punto se salga de los lados
         cursorX = cursorX.coerceIn(0f, webView.width.toFloat())
         cursorY = cursorY.coerceIn(0f, webView.height.toFloat())
-        
         cursorView.x = cursorX
         cursorView.y = cursorY
     }
