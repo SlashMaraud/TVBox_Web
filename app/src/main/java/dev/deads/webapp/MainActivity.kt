@@ -9,7 +9,6 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.webkit.*
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -33,44 +32,37 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Aceleración máxima
-        window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
-        
         setContentView(R.layout.activity_main)
+        
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // Limpiar todo rastro anterior para evitar que el bucle se alimente de cookies viejas
-        WebStorage.getInstance().deleteAllData()
-        CookieManager.getInstance().removeAllCookies(null)
-        CookieManager.getInstance().flush()
+        // Configuración idéntica a navegadores profesionales
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
             setSupportMultipleWindows(false)
-            allowFileAccess = true
-            allowContentAccess = true
             loadWithOverviewMode = true
             useWideViewPort = true
-            javaScriptCanOpenWindowsAutomatically = true
-            mediaPlaybackRequiresUserGesture = false
-            
-            // Probamos con User Agent de Chrome en LINUX (suele ser más efectivo con Cloudflare)
-            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            cacheMode = WebSettings.LOAD_DEFAULT
+            // User Agent de Chrome estable en Windows 10
+            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false
+            // ESTO ES LO QUE HACE TVBRO: Borra la marca de "App Android" en cada petición
+            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                val headers = request?.requestHeaders?.toMutableMap()
+                headers?.remove("X-Requested-With")
+                return super.shouldInterceptRequest(view, request)
             }
 
-            // Inyectamos un pequeño script para ocultar que somos un WebView
-            override fun onPageFinished(view: WebView?, url: String?) {
-                view?.evaluateJavascript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})", null)
-                super.onPageFinished(view, url)
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                return false 
             }
         }
 
@@ -83,7 +75,6 @@ class MainActivity : AppCompatActivity() {
                 customView = view
                 rootLayout.addView(customView, FrameLayout.LayoutParams(-1, -1))
                 webView.visibility = View.GONE
-                showCursorTemporarily()
             }
 
             override fun onHideCustomView() {
@@ -91,14 +82,12 @@ class MainActivity : AppCompatActivity() {
                 rootLayout.removeView(customView)
                 customView = null
                 webView.visibility = View.VISIBLE
-                showCursorTemporarily()
             }
         }
 
-        // Cargamos la web sin dejar rastro de que somos una APP
         webView.loadUrl(DEFAULT_URL)
 
-        // --- PUNTERO ---
+        // Puntero
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -165,6 +154,5 @@ class MainActivity : AppCompatActivity() {
         cursorY = cursorY.coerceIn(0f, rootLayout.height.toFloat())
         cursorView.x = cursorX
         cursorView.y = cursorY
-        cursorView.bringToFront()
     }
 }
