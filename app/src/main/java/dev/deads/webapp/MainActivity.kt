@@ -1,4 +1,4 @@
-package dev.deads.webapp
+padBashntextntextwBasetachBaseContextdroidTV-WebAPPdroidTV-WebAPPckage dev.deads.webapp
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
     private val LANGUAGE_KEY = "SAVED_LANG"
     private val SSL_IGNORE_KEY = "SSL_IGNORE"
     private val IS_FIRST_RUN_KEY = "IS_FIRST_RUN"
-    private val DEFAULT_URL = "https://github.com/DedBash/AndroidTV-WebAPP"
+    private val DEFAULT_URL = "https://hdfull.one"
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -69,8 +69,7 @@ class MainActivity : AppCompatActivity() {
 
         sslCheckBox.isChecked = sharedPreferences.getBoolean(SSL_IGNORE_KEY, false)
 
-        val savedUrl = loadUrl()
-        editUrl.setText(savedUrl)
+        val savedUrl = losavedUrl        editUrl.setText(savedUrl)
         setupWebView(savedUrl)
 
         setupFocusChangeListener()
