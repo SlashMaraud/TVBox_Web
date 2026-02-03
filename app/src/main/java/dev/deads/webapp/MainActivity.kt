@@ -34,45 +34,46 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Aceleración por hardware para scripts pesados
+        // Aceleración máxima
         window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
         
         setContentView(R.layout.activity_main)
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // Limpieza y activación de Cookies
-        val cookieManager = CookieManager.getInstance()
-        cookieManager.setAcceptCookie(true)
-        cookieManager.setAcceptThirdPartyCookies(webView, true)
+        // Limpiar todo rastro anterior para evitar que el bucle se alimente de cookies viejas
+        WebStorage.getInstance().deleteAllData()
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
 
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
+            setSupportMultipleWindows(false)
+            allowFileAccess = true
+            allowContentAccess = true
             loadWithOverviewMode = true
             useWideViewPort = true
             javaScriptCanOpenWindowsAutomatically = true
             mediaPlaybackRequiresUserGesture = false
-            setSupportMultipleWindows(false)
-            cacheMode = WebSettings.LOAD_DEFAULT
             
-            // DISFRAZ TOTAL DE PC
-            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            // Probamos con User Agent de Chrome en LINUX (suele ser más efectivo con Cloudflare)
+            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false // Deja que Cloudflare maneje sus propios saltos
+                return false
             }
 
-            // Truco: Forzamos el Referrer para que parezca que navegamos dentro de la web
+            // Inyectamos un pequeño script para ocultar que somos un WebView
             override fun onPageFinished(view: WebView?, url: String?) {
+                view?.evaluateJavascript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})", null)
                 super.onPageFinished(view, url)
-                cookieManager.flush()
             }
         }
-            
+
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 if (customView != null) {
@@ -80,10 +81,7 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
                 customView = view
-                rootLayout.addView(customView, FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, 
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                ))
+                rootLayout.addView(customView, FrameLayout.LayoutParams(-1, -1))
                 webView.visibility = View.GONE
                 showCursorTemporarily()
             }
@@ -97,11 +95,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Cargamos con cabeceras extra para parecer un navegador de PC
-        val extraHeaders = HashMap<String, String>()
-        extraHeaders["Upgrade-Insecure-Requests"] = "1"
-        extraHeaders["Sec-Fetch-Mode"] = "navigate"
-        webView.loadUrl(DEFAULT_URL, extraHeaders)
+        // Cargamos la web sin dejar rastro de que somos una APP
+        webView.loadUrl(DEFAULT_URL)
 
         // --- PUNTERO ---
         cursorView = View(this).apply {
@@ -120,12 +115,8 @@ class MainActivity : AppCompatActivity() {
         if (event.action == KeyEvent.ACTION_DOWN) {
             showCursorTemporarily()
             when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (cursorY < 100f && customView == null) webView.scrollBy(0, -250) else cursorY -= step
-                }
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (cursorY > (rootLayout.height - 150f) && customView == null) webView.scrollBy(0, 250) else cursorY += step
-                }
+                KeyEvent.KEYCODE_DPAD_UP -> if (cursorY < 100f && customView == null) webView.scrollBy(0, -250) else cursorY -= step
+                KeyEvent.KEYCODE_DPAD_DOWN -> if (cursorY > (rootLayout.height - 150f) && customView == null) webView.scrollBy(0, 250) else cursorY += step
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
@@ -151,9 +142,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun enviarClic() {
         val downTime = android.os.SystemClock.uptimeMillis()
-        val downEvent = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
-        val upEvent = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0)
-        
+        val downEvent = android.view.MotionEvent.obtain(downTime, downTime, 0, cursorX, cursorY, 0)
+        val upEvent = android.view.MotionEvent.obtain(downTime, downTime, 1, cursorX, cursorY, 0)
         if (customView != null) {
             customView?.dispatchTouchEvent(downEvent)
             customView?.dispatchTouchEvent(upEvent)
