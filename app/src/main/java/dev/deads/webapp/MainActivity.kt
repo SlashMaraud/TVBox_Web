@@ -22,22 +22,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rootLayout: FrameLayout
     private var customView: View? = null
     
-    private val DEFAULT_URL = "https://pelisflix20.space/"
+    // URL PARA LA SEGUNDA APP
+    private val DEFAULT_URL = "https://hdfull.one"
     private var cursorX = 640f
     private var cursorY = 360f
     private val step = 45f 
 
-    // Temporizador para ocultar el cursor
     private val hideHandler = Handler(Looper.getMainLooper())
-    private val hideRunnable = Runnable {
-        cursorView.visibility = View.GONE
-    }
-    private val CURSOR_TIMEOUT = 3000L // 3 segundos
+    private val hideRunnable = Runnable { cursorView.visibility = View.GONE }
+    private val CURSOR_TIMEOUT = 3000L 
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         rootLayout = FrameLayout(this)
         
         webView = WebView(this).apply {
@@ -45,9 +42,7 @@ class MainActivity : AppCompatActivity() {
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-            
             webViewClient = WebViewClient()
-            
             webChromeClient = object : WebChromeClient() {
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (customView != null) {
@@ -59,7 +54,6 @@ class MainActivity : AppCompatActivity() {
                     webView.visibility = View.GONE
                     showCursorTemporarily()
                 }
-
                 override fun onHideCustomView() {
                     if (customView == null) return
                     rootLayout.removeView(customView)
@@ -83,14 +77,12 @@ class MainActivity : AppCompatActivity() {
         rootLayout.addView(cursorView)
 
         setContentView(rootLayout)
-        showCursorTemporarily() // Mostrar al inicio
+        showCursorTemporarily()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
-            // Cada vez que se pulsa una tecla, mostramos el cursor
             showCursorTemporarily()
-
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     if (cursorY < 100f && customView == null) webView.scrollBy(0, -250) else cursorY -= step
@@ -104,7 +96,6 @@ class MainActivity : AppCompatActivity() {
                     val downTime = android.os.SystemClock.uptimeMillis()
                     val downEvent = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
                     val upEvent = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0)
-                    
                     if (customView != null) {
                         customView?.dispatchTouchEvent(downEvent)
                         customView?.dispatchTouchEvent(upEvent)
@@ -134,8 +125,6 @@ class MainActivity : AppCompatActivity() {
     private fun showCursorTemporarily() {
         cursorView.visibility = View.VISIBLE
         cursorView.bringToFront()
-        
-        // Reiniciamos el temporizador de ocultación
         hideHandler.removeCallbacks(hideRunnable)
         hideHandler.postDelayed(hideRunnable, CURSOR_TIMEOUT)
     }
