@@ -38,7 +38,8 @@ class MainActivity : AppCompatActivity() {
     private val LANGUAGE_KEY = "SAVED_LANG"
     private val SSL_IGNORE_KEY = "SSL_IGNORE"
     private val IS_FIRST_RUN_KEY = "IS_FIRST_RUN"
-    private val DEFAULT_URL = "https://pelisflix20.space/
+    private val DEFAULT_URL = "https://pelisflix20.space/"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -131,7 +132,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        webView.settings.javaScriptEnabled = true
+        
+        val settings = webView.settings
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.loadWithOverviewMode = true
+        settings.useWideViewPort = true
+        settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        
         webView.loadUrl(url)
     }
 
