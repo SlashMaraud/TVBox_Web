@@ -1,4 +1,4 @@
-padBashntextntextwBasetachBaseContextdroidTV-WebAPPdroidTV-WebAPPckage dev.deads.webapp
+package dev.deads.webapp
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -40,12 +40,6 @@ class MainActivity : AppCompatActivity() {
     private val IS_FIRST_RUN_KEY = "IS_FIRST_RUN"
     private val DEFAULT_URL = "https://hdfull.one"
 
-    override fun attachBaseContext(newBase: Context) {
-        val prefs = newBase.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val lang = prefs.getString(LANGUAGE_KEY, Locale.getDefault().language) ?: Locale.getDefault().language
-        super.attachBaseContext(LocaleHelper.onAttach(newBase, lang))
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -69,7 +63,8 @@ class MainActivity : AppCompatActivity() {
 
         sslCheckBox.isChecked = sharedPreferences.getBoolean(SSL_IGNORE_KEY, false)
 
-        val savedUrl = losavedUrl        editUrl.setText(savedUrl)
+        val savedUrl = loadUrl()
+        editUrl.setText(savedUrl)
         setupWebView(savedUrl)
 
         setupFocusChangeListener()
@@ -99,7 +94,6 @@ class MainActivity : AppCompatActivity() {
         languageButton.setOnClickListener { showLanguageSelectionDialog() }
     }
 
-    // HIER IST DIE WICHTIGSTE ÄNDERUNG
     private fun setupOnBackPressed() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -120,9 +114,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showWelcomeDialog() {
         AlertDialog.Builder(this)
-            .setTitle(getString(R.string.welcome_title))
-            .setMessage(getString(R.string.welcome_message))
-            .setPositiveButton(getString(R.string.dialog_ok), null)
+            .setTitle("Bienvenido")
+            .setMessage("Configura tu URL favorita")
+            .setPositiveButton("OK", null)
             .show()
     }
 
@@ -143,10 +137,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLanguageSelectionDialog() {
-        val languages = arrayOf("Deutsch", "English")
-        val languageCodes = arrayOf("de", "en")
+        val languages = arrayOf("Español", "English")
+        val languageCodes = arrayOf("es", "en")
         AlertDialog.Builder(this)
-            .setTitle(getString(R.string.select_language_title))
+            .setTitle("Idioma")
             .setItems(languages) { _, which ->
                 saveLanguage(languageCodes[which])
                 recreate()
@@ -155,9 +149,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showInfoDialog() {
         AlertDialog.Builder(this)
-            .setTitle(getString(R.string.info_dialog_title))
-            .setMessage(getString(R.string.info_dialog_message))
-            .setPositiveButton(getString(R.string.dialog_ok), null).show()
+            .setTitle("Info")
+            .setMessage("Navegador Web para Android TV")
+            .setPositiveButton("OK", null).show()
     }
 
     private fun setupFocusChangeListener() {
