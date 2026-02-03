@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // --- CONFIGURACIÓN PARA SALTAR EL BUCLE DE SEGURIDAD ---
+        // Limpiar cookies viejas por si acaso hay un token corrupto
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 
@@ -45,26 +45,44 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            setSupportZoom(true)
-            builtInZoomControls = true
-            displayZoomControls = false
             loadWithOverviewMode = true
             useWideViewPort = true
-            cacheMode = WebSettings.LOAD_DEFAULT
-            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             javaScriptCanOpenWindowsAutomatically = true
             mediaPlaybackRequiresUserGesture = false
-            // User Agent de Chrome muy reciente
+            setSupportMultipleWindows(true) // Importante para algunos captchas
+            
+            // DISFRAZ DE CHROME DE WINDOWS
             userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
+            // ESTA FUNCIÓN ES LA CLAVE: Borra el rastro de que es una APP de Android
+            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                return super.shouldInterceptRequest(view, request)
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false // Permite que Cloudflare maneje las redirecciones internamente
+                // No forzamos la carga, dejamos que el navegador fluya
+                return false 
             }
         }
             
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
+                // Si la web intenta abrir una ventana de verificación, la cargamos en el mismo WebView
+                val newWebView = WebView(this@MainActivity)
+                newWebView.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                        webView.loadUrl(request?.url.toString())
+                        return true
+                    }
+                }
+                val transport = resultMsg?.obj as WebView.WebViewTransport
+                transport.webView = newWebView
+                resultMsg.sendToTarget()
+                return true
+            }
+
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 if (customView != null) {
                     callback?.onCustomViewHidden()
@@ -90,7 +108,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.loadUrl(DEFAULT_URL)
 
-        // --- PUNTERO ---
+        // PUNTERO
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
