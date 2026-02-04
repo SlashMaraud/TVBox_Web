@@ -29,8 +29,4 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
-    
-    // VERSIÓN ESTABLE OFICIAL (Verificada)
-    // Usamos el canal 'release' que es el más fiable
-    implementation("org.mozilla.geckoview:geckoview:121.0")
 }
