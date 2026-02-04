@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.deads.webapp"
-        minSdk = 21 // GeckoView requiere mínimo 21, perfecto para Chromecast
+        minSdk = 21
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -30,7 +30,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     
-    // Esta es la versión "comodín" que Mozilla sirve por defecto.
-    // Si esta no la encuentra, es que hay un problema de conexión con su servidor.
-    implementation("org.mozilla.geckoview:geckoview-omni:115.0.20230710155057")
+    // Esta versión está en Maven Central (repositorio estándar de Android)
+    // No necesita que el servidor de Mozilla responda, GitHub la encontrará rápido.
+    implementation("org.mozilla.geckoview:geckoview-nightly:121.0.20231024094238")
 }
