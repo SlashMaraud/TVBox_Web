@@ -6,9 +6,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import android.view.KeyEvent
-import android.view.MotionEvent
 import android.view.View
 import android.webkit.*
 import android.widget.FrameLayout
@@ -36,43 +34,41 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // 1. LIMPIEZA TOTAL AL INICIAR
-        CookieManager.getInstance().removeAllCookies(null)
-        WebStorage.getInstance().deleteAllData()
+        // Forzamos limpieza de cookies para que no arrastre el bucle
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            setSupportMultipleWindows(false)
+            // Disfraz agresivo de TVBro / Navegador de escritorio
+            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 TVBro/2.0"
+            
             loadWithOverviewMode = true
             useWideViewPort = true
-            // Disfraz de Safari en Mac (Muy efectivo contra Cloudflare)
-            userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+            cacheMode = WebSettings.LOAD_NO_CACHE // Forzamos a que no use caché del bucle
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val headers = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
-                // Borramos cualquier rastro de que esto es una App
+                // Esto es vital: quitamos la marca de "App"
                 headers.remove("X-Requested-With")
                 return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                // Inyectamos script para simular un navegador real
-                view?.evaluateJavascript("""
-                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                    window.chrome = { runtime: {} };
-                    Object.defineProperty(navigator, 'languages', {get: () => ['es-ES', 'es']});
-                """.trimIndent(), null)
+                // Engañamos al sistema de seguridad con JS
+                view?.evaluateJavascript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})", null)
                 super.onPageFinished(view, url)
             }
         }
 
         webView.loadUrl(DEFAULT_URL)
 
-        // --- PUNTERO ---
+        // Puntero
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -94,11 +90,11 @@ class MainActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    enviarClicSuave()
+                    clickSimulado()
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
-                    if (webView.canGoBack()) webView.goBack() else finish()
+                    if (webView.canGoBack()) webView.goBack()
                     return true
                 }
             }
@@ -108,13 +104,10 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun enviarClicSuave() {
-        val time = SystemClock.uptimeMillis()
-        // Enviamos el clic con un ligero retraso para simular dedo humano
-        webView.dispatchTouchEvent(MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, cursorX, cursorY, 0))
-        Handler(Looper.getMainLooper()).postDelayed({
-            webView.dispatchTouchEvent(MotionEvent.obtain(time + 80, time + 80, MotionEvent.ACTION_UP, cursorX, cursorY, 0))
-        }, 80)
+    private fun clickSimulado() {
+        val time = android.os.SystemClock.uptimeMillis()
+        webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0))
+        webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time + 50, time + 50, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0))
     }
 
     private fun showCursor() {
