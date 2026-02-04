@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // 1. CONFIGURACIÓN DE NAVEGADOR PROFESIONAL
+        // CONFIGURACIÓN DE MOTOR DE ALTO RENDIMIENTO
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
@@ -43,29 +43,38 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            setSupportMultipleWindows(true) // Cloudflare a veces abre ventanas invisibles de chequeo
             
-            // Forzamos el renderizado como si fuera una PC de escritorio
+            // FORZAR MODO ESCRITORIO REAL
             useWideViewPort = true
             loadWithOverviewMode = true
             
-            // DISFRAZ DE NAVEGADOR DE TV REAL (Basado en TVBro que sí te funciona)
-            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            // DISFRAZ DE NAVEGADOR DE ALTA SEGURIDAD
+            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
             
-            // Crucial: Permite que el JS de Cloudflare se ejecute sin restricciones
+            // Permitir que Cloudflare use todas las herramientas de red
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            cacheMode = WebSettings.LOAD_DEFAULT
         }
 
-        // 2. ELIMINACIÓN DE RASTROS DE "APP"
+        // ELIMINAR EL RASTRO DE "WEBVIEW" (La huella digital)
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val headers = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
-                // Si Cloudflare ve esto, sabe que es una App y te bloquea:
+                // Si estas cabeceras existen, Cloudflare sabe que es un bot
                 headers.remove("X-Requested-With")
+                headers.remove("sec-ch-ua-mobile")
                 return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
+                // Inyectamos un "Parche de Humano" directo en el corazón de la página
+                view?.evaluateJavascript("""
+                    (function() {
+                        window.chrome = { runtime: {} };
+                        Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                        Object.defineProperty(navigator, 'languages', {get: () => ['es-ES', 'es']});
+                    })();
+                """.trimIndent(), null)
                 cookieManager.flush()
                 super.onPageFinished(view, url)
             }
@@ -73,7 +82,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.loadUrl(DEFAULT_URL)
 
-        // 3. PUNTERO
+        // DISEÑO DEL PUNTERO
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -95,7 +104,7 @@ class MainActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    enviarClicManual()
+                    enviarClicReal()
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
@@ -109,14 +118,15 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun enviarClicManual() {
+    private fun enviarClicReal() {
         val time = android.os.SystemClock.uptimeMillis()
-        // Clic con una duración de 100ms (ni muy rápido ni muy lento)
+        // Enviamos la secuencia que un ratón real haría
         webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0))
         Handler(Looper.getMainLooper()).postDelayed({
             val upTime = android.os.SystemClock.uptimeMillis()
             webView.dispatchTouchEvent(android.view.MotionEvent.obtain(upTime, upTime, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0))
-        }, 100)
+            CookieManager.getInstance().flush()
+        }, 150) // 150ms es el tiempo exacto de un clic humano
     }
 
     private fun showCursor() {
