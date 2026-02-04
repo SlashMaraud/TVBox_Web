@@ -19,7 +19,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var cursorView: View
     private lateinit var rootLayout: FrameLayout
-    private var customView: View? = null
     
     private val DEFAULT_URL = "https://hdfull.one/"
     private var cursorX = 640f
@@ -28,7 +27,6 @@ class MainActivity : AppCompatActivity() {
 
     private val hideHandler = Handler(Looper.getMainLooper())
     private val hideRunnable = Runnable { cursorView.visibility = View.GONE }
-    private val CURSOR_TIMEOUT = 3000L 
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,43 +36,36 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // CONFIGURACIÓN DE ALTO NIVEL PARA SALTAR BLOQUEOS
-        val cookieManager = CookieManager.getInstance()
-        cookieManager.setAcceptCookie(true)
-        cookieManager.setAcceptThirdPartyCookies(webView, true)
+        // 1. LIMPIEZA TOTAL AL INICIAR
+        CookieManager.getInstance().removeAllCookies(null)
+        WebStorage.getInstance().deleteAllData()
 
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
             setSupportMultipleWindows(false)
-            
-            // Forzamos visualización de escritorio
             loadWithOverviewMode = true
             useWideViewPort = true
-            
-            // Desactivamos identificación de Android
-            allowFileAccess = true
-            javaScriptCanOpenWindowsAutomatically = true
-            
-            // USER AGENT DE CHROME LINUX (El más estable para saltar Cloudflare)
-            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            // Disfraz de Safari en Mac (Muy efectivo contra Cloudflare)
+            userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
         }
 
         webView.webViewClient = object : WebViewClient() {
-            // ELIMINAR CABECERAS SOSPECHOSAS
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val headers = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
+                // Borramos cualquier rastro de que esto es una App
                 headers.remove("X-Requested-With")
-                headers.remove("sec-ch-ua-platform") // Evita que detecte Android
                 return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                cookieManager.flush()
-                // Borrar rastro de automatización mediante JS inyectado
-                view?.evaluateJavascript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})", null)
-                view?.evaluateJavascript("window.chrome = { runtime: {} };", null)
+                // Inyectamos script para simular un navegador real
+                view?.evaluateJavascript("""
+                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                    window.chrome = { runtime: {} };
+                    Object.defineProperty(navigator, 'languages', {get: () => ['es-ES', 'es']});
+                """.trimIndent(), null)
                 super.onPageFinished(view, url)
             }
         }
@@ -91,26 +82,24 @@ class MainActivity : AppCompatActivity() {
             layoutParams = FrameLayout.LayoutParams(30, 30)
         }
         rootLayout.addView(cursorView)
-        showCursorTemporarily()
+        showCursor()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
-            showCursorTemporarily()
+            showCursor()
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> if (cursorY < 100f) webView.scrollBy(0, -300) else cursorY -= step
                 KeyEvent.KEYCODE_DPAD_DOWN -> if (cursorY > (rootLayout.height - 150f)) webView.scrollBy(0, 300) else cursorY += step
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    enviarClicHumano()
+                    enviarClicSuave()
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
-                    if (webView.canGoBack()) {
-                        webView.goBack()
-                        return true
-                    }
+                    if (webView.canGoBack()) webView.goBack() else finish()
+                    return true
                 }
             }
             updateCursor()
@@ -119,24 +108,20 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun enviarClicHumano() {
+    private fun enviarClicSuave() {
         val time = SystemClock.uptimeMillis()
-        // Simulación de tres pasos para que Cloudflare no sospeche
-        val down = MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
-        val up = MotionEvent.obtain(time + 50, time + 50, MotionEvent.ACTION_UP, cursorX, cursorY, 0)
-        
-        webView.dispatchTouchEvent(down)
-        webView.dispatchTouchEvent(up)
-        
-        down.recycle()
-        up.recycle()
+        // Enviamos el clic con un ligero retraso para simular dedo humano
+        webView.dispatchTouchEvent(MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, cursorX, cursorY, 0))
+        Handler(Looper.getMainLooper()).postDelayed({
+            webView.dispatchTouchEvent(MotionEvent.obtain(time + 80, time + 80, MotionEvent.ACTION_UP, cursorX, cursorY, 0))
+        }, 80)
     }
 
-    private fun showCursorTemporarily() {
+    private fun showCursor() {
         cursorView.visibility = View.VISIBLE
         cursorView.bringToFront()
         hideHandler.removeCallbacks(hideRunnable)
-        hideHandler.postDelayed(hideRunnable, CURSOR_TIMEOUT)
+        hideHandler.postDelayed(hideRunnable, 3000)
     }
 
     private fun updateCursor() {
