@@ -1,23 +1,23 @@
 pluginManagement {
     repositories {
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
+        google()
         mavenCentral()
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // Cambiamos a 'PREFER_SETTINGS' para que mande este archivo sobre los demás
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
+        // Servidor oficial de Mozilla - FORZADO
+        maven {
+            url = uri("https://maven.mozilla.org/maven2/")
+        }
     }
 }
 
-rootProject.name = "WebApp"
+rootProject.name = "TVBox_Web"
 include(":app")
