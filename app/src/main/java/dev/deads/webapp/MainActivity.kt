@@ -34,41 +34,43 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // CONFIGURACIÓN PARA EVITAR EL "CARTELITO" DE ERROR
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        // CONFIGURACIÓN AVANZADA DE ALMACENAMIENTO (VITAL PARA CLOUDFLARE)
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
-            domStorageEnabled = true
-            databaseEnabled = true
-            useWideViewPort = true
+            domStorageEnabled = true // Permite guardar datos de la web
+            databaseEnabled = true    // Permite bases de datos internas
+            setSupportMultipleWindows(false)
             loadWithOverviewMode = true
-            // Disfraz estable de PC para TV
-            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+            useWideViewPort = true
+            
+            // Esto evita el bloqueo de scripts de seguridad
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            
+            // Disfraz estable de TVBro (Linux Desktop)
+            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
-            // IGNORAR ERRORES QUE LANZAN EL CARTEL RÁPIDO
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                // Si el error es por el script de Cloudflare, lo ignoramos para que no reinicie el bucle
-                super.onReceivedError(view, request, error)
-            }
-
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val headers = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
-                headers.remove("X-Requested-With") 
+                // Borramos la marca de "App" que hace que Cloudflare falle
+                headers.remove("X-Requested-With")
                 return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                CookieManager.getInstance().flush()
+                cookieManager.flush() // Guardamos las cookies de "humano" al momento
                 super.onPageFinished(view, url)
             }
         }
 
         webView.loadUrl(DEFAULT_URL)
 
+        // Puntero Rojo
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -90,7 +92,7 @@ class MainActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    clicConPausa()
+                    enviarClicSimple()
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
@@ -104,17 +106,12 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun clicConPausa() {
+    private fun enviarClicSimple() {
         val time = android.os.SystemClock.uptimeMillis()
-        // Enviamos el "Presionar"
         webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0))
-        
-        // Esperamos 150ms antes de "Soltar" para que el sistema registre el contacto
-        Handler(Looper.getMainLooper()).postDelayed({
-            val endTime = android.os.SystemClock.uptimeMillis()
-            webView.dispatchTouchEvent(android.view.MotionEvent.obtain(endTime, endTime, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0))
-            CookieManager.getInstance().flush()
-        }, 150)
+        webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time + 10, time + 10, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0))
+        // Forzamos guardado de sesión tras el clic
+        CookieManager.getInstance().flush()
     }
 
     private fun showCursor() {
