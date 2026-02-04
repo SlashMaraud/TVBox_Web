@@ -34,43 +34,46 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // CONFIGURACIÓN AVANZADA DE ALMACENAMIENTO (VITAL PARA CLOUDFLARE)
+        // 1. CONFIGURACIÓN DE NAVEGADOR PROFESIONAL
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
-            domStorageEnabled = true // Permite guardar datos de la web
-            databaseEnabled = true    // Permite bases de datos internas
-            setSupportMultipleWindows(false)
-            loadWithOverviewMode = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            setSupportMultipleWindows(true) // Cloudflare a veces abre ventanas invisibles de chequeo
+            
+            // Forzamos el renderizado como si fuera una PC de escritorio
             useWideViewPort = true
+            loadWithOverviewMode = true
             
-            // Esto evita el bloqueo de scripts de seguridad
+            // DISFRAZ DE NAVEGADOR DE TV REAL (Basado en TVBro que sí te funciona)
+            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            
+            // Crucial: Permite que el JS de Cloudflare se ejecute sin restricciones
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            
-            // Disfraz estable de TVBro (Linux Desktop)
-            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
         }
 
+        // 2. ELIMINACIÓN DE RASTROS DE "APP"
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val headers = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
-                // Borramos la marca de "App" que hace que Cloudflare falle
+                // Si Cloudflare ve esto, sabe que es una App y te bloquea:
                 headers.remove("X-Requested-With")
                 return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                cookieManager.flush() // Guardamos las cookies de "humano" al momento
+                cookieManager.flush()
                 super.onPageFinished(view, url)
             }
         }
 
         webView.loadUrl(DEFAULT_URL)
 
-        // Puntero Rojo
+        // 3. PUNTERO
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -92,7 +95,7 @@ class MainActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    enviarClicSimple()
+                    enviarClicManual()
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
@@ -106,12 +109,14 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun enviarClicSimple() {
+    private fun enviarClicManual() {
         val time = android.os.SystemClock.uptimeMillis()
+        // Clic con una duración de 100ms (ni muy rápido ni muy lento)
         webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0))
-        webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time + 10, time + 10, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0))
-        // Forzamos guardado de sesión tras el clic
-        CookieManager.getInstance().flush()
+        Handler(Looper.getMainLooper()).postDelayed({
+            val upTime = android.os.SystemClock.uptimeMillis()
+            webView.dispatchTouchEvent(android.view.MotionEvent.obtain(upTime, upTime, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0))
+        }, 100)
     }
 
     private fun showCursor() {
