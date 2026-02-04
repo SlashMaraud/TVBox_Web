@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.deads.webapp"
+    namespace = "dev.deads.hdfull"
     compileSdk = 34
 
     defaultConfig {
