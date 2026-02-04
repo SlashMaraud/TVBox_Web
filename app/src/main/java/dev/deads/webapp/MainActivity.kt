@@ -10,7 +10,6 @@ import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.webkit.*
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -39,6 +38,7 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
+        // CONFIGURACIÓN DE ALTO NIVEL PARA SALTAR BLOQUEOS
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
@@ -47,49 +47,41 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
+            setSupportMultipleWindows(false)
+            
+            // Forzamos visualización de escritorio
             loadWithOverviewMode = true
             useWideViewPort = true
-            cacheMode = WebSettings.LOAD_DEFAULT
-            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            // User Agent de Chrome estable para evitar sospechas
-            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            
+            // Desactivamos identificación de Android
+            allowFileAccess = true
+            javaScriptCanOpenWindowsAutomatically = true
+            
+            // USER AGENT DE CHROME LINUX (El más estable para saltar Cloudflare)
+            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
-            // ELIMINAR EL RASTRO DE APP ANDROID (CLAVE)
+            // ELIMINAR CABECERAS SOSPECHOSAS
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val headers = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
                 headers.remove("X-Requested-With")
+                headers.remove("sec-ch-ua-platform") // Evita que detecte Android
                 return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 cookieManager.flush()
-                // Engaño para ocultar que es una automatización
+                // Borrar rastro de automatización mediante JS inyectado
                 view?.evaluateJavascript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})", null)
+                view?.evaluateJavascript("window.chrome = { runtime: {} };", null)
                 super.onPageFinished(view, url)
-            }
-        }
-
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-                if (customView != null) return
-                customView = view
-                rootLayout.addView(customView, FrameLayout.LayoutParams(-1, -1))
-                webView.visibility = View.GONE
-            }
-
-            override fun onHideCustomView() {
-                if (customView == null) return
-                rootLayout.removeView(customView)
-                customView = null
-                webView.visibility = View.VISIBLE
             }
         }
 
         webView.loadUrl(DEFAULT_URL)
 
-        // Puntero Rojo
+        // --- PUNTERO ---
         cursorView = View(this).apply {
             val shape = GradientDrawable()
             shape.shape = GradientDrawable.OVAL
@@ -106,22 +98,19 @@ class MainActivity : AppCompatActivity() {
         if (event.action == KeyEvent.ACTION_DOWN) {
             showCursorTemporarily()
             when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (cursorY < 100f && customView == null) webView.scrollBy(0, -300) else cursorY -= step
-                }
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (cursorY > (rootLayout.height - 150f) && customView == null) webView.scrollBy(0, 300) else cursorY += step
-                }
+                KeyEvent.KEYCODE_DPAD_UP -> if (cursorY < 100f) webView.scrollBy(0, -300) else cursorY -= step
+                KeyEvent.KEYCODE_DPAD_DOWN -> if (cursorY > (rootLayout.height - 150f)) webView.scrollBy(0, 300) else cursorY += step
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    enviarClicReal()
+                    enviarClicHumano()
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
-                    if (customView != null) webView.webChromeClient?.onHideCustomView()
-                    else if (webView.canGoBack()) webView.goBack()
-                    return true
+                    if (webView.canGoBack()) {
+                        webView.goBack()
+                        return true
+                    }
                 }
             }
             updateCursor()
@@ -130,26 +119,17 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun enviarClicReal() {
+    private fun enviarClicHumano() {
         val time = SystemClock.uptimeMillis()
+        // Simulación de tres pasos para que Cloudflare no sospeche
+        val down = MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
+        val up = MotionEvent.obtain(time + 50, time + 50, MotionEvent.ACTION_UP, cursorX, cursorY, 0)
         
-        // 1. Simular que el ratón "entra" en el área (Hover)
-        val hoverEvent = MotionEvent.obtain(time, time, MotionEvent.ACTION_HOVER_MOVE, cursorX, cursorY, 0)
+        webView.dispatchTouchEvent(down)
+        webView.dispatchTouchEvent(up)
         
-        // 2. Simular Presionar
-        val downEvent = MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
-        
-        // 3. Simular Soltar
-        val upEvent = MotionEvent.obtain(time + 100, time + 100, MotionEvent.ACTION_UP, cursorX, cursorY, 0)
-
-        if (customView != null) {
-            customView?.dispatchTouchEvent(downEvent)
-            customView?.dispatchTouchEvent(upEvent)
-        } else {
-            webView.dispatchGenericMotionEvent(hoverEvent)
-            webView.dispatchTouchEvent(downEvent)
-            webView.dispatchTouchEvent(upEvent)
-        }
+        down.recycle()
+        up.recycle()
     }
 
     private fun showCursorTemporarily() {
