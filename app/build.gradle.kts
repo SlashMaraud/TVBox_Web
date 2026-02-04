@@ -30,7 +30,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     
-    // Esta versión está en Maven Central (repositorio estándar de Android)
-    // No necesita que el servidor de Mozilla responda, GitHub la encontrará rápido.
-    implementation("org.mozilla.geckoview:geckoview-nightly:121.0.20231024094238")
+    // VERSIÓN ESTABLE OFICIAL (Verificada)
+    // Usamos el canal 'release' que es el más fiable
+    implementation("org.mozilla.geckoview:geckoview:121.0")
 }
