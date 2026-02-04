@@ -34,34 +34,33 @@ class MainActivity : AppCompatActivity() {
         rootLayout = findViewById(R.id.rootLayout)
         webView = findViewById(R.id.webView)
 
-        // Forzamos limpieza de cookies para que no arrastre el bucle
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        // CONFIGURACIÓN DE ALTA COMPATIBILIDAD (ESTILO TVBRO)
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            // Disfraz agresivo de TVBro / Navegador de escritorio
-            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 TVBro/2.0"
-            
-            loadWithOverviewMode = true
             useWideViewPort = true
-            cacheMode = WebSettings.LOAD_NO_CACHE // Forzamos a que no use caché del bucle
+            loadWithOverviewMode = true
+            cacheMode = WebSettings.LOAD_DEFAULT
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            // El User Agent exacto que Cloudflare suele dejar pasar en TV
+            userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36"
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val headers = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
-                // Esto es vital: quitamos la marca de "App"
-                headers.remove("X-Requested-With")
+                headers.remove("X-Requested-With") // Clave para que no sepa que es una App
                 return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                // Engañamos al sistema de seguridad con JS
-                view?.evaluateJavascript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})", null)
+                // Forzamos el guardado de la sesión nada más cargar
+                CookieManager.getInstance().flush()
                 super.onPageFinished(view, url)
             }
         }
@@ -90,11 +89,11 @@ class MainActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_LEFT -> cursorX -= step
                 KeyEvent.KEYCODE_DPAD_RIGHT -> cursorX += step
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    clickSimulado()
+                    hacerClicYGuardar()
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
-                    if (webView.canGoBack()) webView.goBack()
+                    if (webView.canGoBack()) webView.goBack() else finish()
                     return true
                 }
             }
@@ -104,10 +103,14 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun clickSimulado() {
+    private fun hacerClicYGuardar() {
         val time = android.os.SystemClock.uptimeMillis()
+        // Clic
         webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_DOWN, cursorX, cursorY, 0))
         webView.dispatchTouchEvent(android.view.MotionEvent.obtain(time + 50, time + 50, android.view.MotionEvent.ACTION_UP, cursorX, cursorY, 0))
+        
+        // El truco: Forzamos al sistema a guardar la cookie de "Soy Humano" justo en el clic
+        CookieManager.getInstance().flush()
     }
 
     private fun showCursor() {
