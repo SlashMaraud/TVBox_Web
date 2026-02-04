@@ -1,58 +1,68 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
 }
 
 android {
-    namespace = "dev.deads.webapp"
-    compileSdk = 35
+    namespace 'dev.deads.webapp'
+    compileSdk 34
 
     defaultConfig {
-        applicationId = "dev.deads.hdfull"
-        minSdk = 21
-        targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        applicationId "dev.deads.webapp"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
 
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    // GeckoView requiere Java 8 para funcionar
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = '1.8'
     }
-    buildFeatures {
-        compose = true
+
+    // Muy importante: Esto permite usar librerías grandes como GeckoView
+    packagingOptions {
+        pickFirst 'lib/x86/libc++_shared.so'
+        pickFirst 'lib/x86_64/libc++_shared.so'
+        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+    }
+}
+
+// Aquí es donde le decimos a Android dónde descargar GeckoView
+repositories {
+    google()
+    mavenCentral()
+    maven {
+        url "https://maven.mozilla.org/maven2/"
     }
 }
 
 dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.tv.foundation)
-    implementation(libs.androidx.tv.material)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
+    // LA ARTILLERÍA PESADA: Motor de Firefox
+    // Usamos la versión "Nightly" o "Release" estable
+    implementation 'org.mozilla.geckoview:geckoview:121.0.20231204154225'
+
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
